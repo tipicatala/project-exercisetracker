@@ -73,29 +73,42 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
 
 app.get('/api/users/:_id/logs', async (req, res) => {
   const user = await User.findOne({ _id: req.params._id })
+  console.log(req.query)
+  console.log(req.params)
 
-  res.json({
-    username: user.username,
-    count: user.log.length,
-    _id: user._id,
-    log: user.log,
-  })
+  if (req.query.to && req.query.from) {
+    const rightLogs = user.log.filter(ex => new Date(ex.date).getTime() >= new Date(req.query.from).getTime() && new Date(ex.date).getTime() <= new Date(req.query.to).getTime())
+    .map(log => {
+      const { _id, ...rest } = log
+      return { date: log.date, description: log.description, duration: log.duration }
+    })
+    res.json({
+      username: user.username,
+      count: rightLogs.length > +req.query.limit ? +req.query.limit : rightLogs.length,
+      _id: user._id,
+      from: new Date(req.query.from).toDateString(),
+      to: new Date(req.query.to).toDateString(),
+      log: rightLogs.length > +req.query.limit ? rightLogs.slice(0, +req.query.limit) : rightLogs,
+    })
+
+  } else {
+    const validLimit = req.query.limit || user.log.length
+
+    res.json({
+      username: user.username,
+      count: +validLimit,
+      _id: user._id,
+      log: user.log.map(log => {
+      return { date: log.date, description: log.description, duration: log.duration }
+    }).slice(0, +validLimit),
+    })
+  }
 })
+
+// link = https://boilerplate-project-exercisetracker-1.tipicatala.repl.co/api/users/615c6f0c01302105d28ba550/logs?from=2021-01-01&to=2021-10-11&limit=1
 
 app.get('/api/users', async (req, res) => {
   res.json(await User.find())
-})
-
-app.get('/api/users/:_id/logs?[&from][&to][&limit]', async (req, res) => {
-  console.log(req.params)
-  // const user = await User.findOne({ _id: req.params._id })
-
-  // res.json({
-  //   username: user.username,
-  //   count: user.log.length,
-  //   _id: user._id,
-  //   log: user.log,
-  // })
 })
 
 const listener = app.listen(process.env.PORT || 3000, () => {
